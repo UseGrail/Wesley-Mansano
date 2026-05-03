@@ -195,17 +195,27 @@ export const useCollection = () => {
       return;
     }
 
-    const handler = setTimeout(() => {
+    const saveToFirebase = () => {
       const docRef = doc(db, 'collections', user!.uid);
-      setDoc(docRef, { uid: user!.uid, data: JSON.parse(currentDataString) })
+      return setDoc(docRef, { uid: user!.uid, data: JSON.parse(currentDataString) })
         .then(() => {
           lastSavedData.current = currentDataString;
         })
         .catch(err => console.error("Error saving to Firebase:", err));
-    }, 60000); 
+    };
 
-    return () => clearTimeout(handler);
-  }, [data, user]);
+    // Save on tab close
+    window.addEventListener('beforeunload', saveToFirebase);
+
+    const handler = setTimeout(() => {
+      saveToFirebase();
+    }, 300000); // 5 minutes debounce
+
+    return () => {
+      clearTimeout(handler);
+      window.removeEventListener('beforeunload', saveToFirebase);
+    };
+  }, [data, user, isLoading]);
 
   const updateSticker = useCallback((stickerId: string, updates: Partial<Sticker>) => {
     // Optimization: Don't keep large base64 in the main collection state if it's already in IDB
