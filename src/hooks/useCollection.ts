@@ -4,8 +4,7 @@ import { INITIAL_TEAMS } from '../constants';
 import { OFFICIAL_CHECKLIST_TEXT } from '../constants/officialData';
 import { parseRawChecklist } from '../utils/checklistParser';
 import { validateStickerUpdate } from '../utils/validation';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'meu-album-2026-data-v2';
@@ -160,18 +159,51 @@ export const useCollection = () => {
     async function loadData() {
       setIsLoading(true);
       if (user) {
-        const docRef = doc(db, 'collections', user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const loadedData = docSnap.data().data as CollectionData;
-          setData(loadedData);
-          lastSavedData.current = JSON.stringify(loadedData);
-        } else {
-            // For new user
+        const userStorageKey = `${STORAGE_KEY}-${user.id}`;
+        try {
+          const { data: result, error } = await supabase
+            .from('collections')
+            .select('id, data')
+            .eq('uid', user.id)
+            .limit(1);
+
+          if (result && result.length > 0) {
+            const rawData = result[0].data as Partial<CollectionData>;
+            const loadedData: CollectionData = { 
+              ...initialData, 
+              ...rawData,
+              transactions: rawData.transactions || [],
+              stickers: rawData.stickers || generatePlaceholders(),
+              settings: rawData.settings || initialData.settings,
+              teams: rawData.teams || initialData.teams,
+              ownerName: rawData.ownerName || initialData.ownerName,
+              albumName: rawData.albumName || initialData.albumName,
+              totalEsperadoCromos: rawData.totalEsperadoCromos || initialData.totalEsperadoCromos,
+              totalEsperadoEspeciais: rawData.totalEsperadoEspeciais || initialData.totalEsperadoEspeciais,
+            };
+            setData(loadedData);
+            lastSavedData.current = JSON.stringify(loadedData);
+            localStorage.setItem(userStorageKey, JSON.stringify(loadedData));
+          } else if (!error) {
+            // For new user or table empty
             const newData = { ...initialData, stickers: generatePlaceholders() };
             setData(newData);
             lastSavedData.current = JSON.stringify(newData);
-            await setDoc(docRef, { uid: user.uid, data: JSON.parse(JSON.stringify(newData)) });
+            await supabase.from('collections').insert({ uid: user.id, data: JSON.parse(JSON.stringify(newData)) });
+            localStorage.setItem(userStorageKey, JSON.stringify(newData));
+          } else {
+            console.error('Error loading data from Supabase, falling back to local storage:', error);
+            const saved = localStorage.getItem(userStorageKey);
+            const initialOrSaved = saved ? JSON.parse(saved) : { ...initialData, stickers: generatePlaceholders() };
+            setData(initialOrSaved);
+            lastSavedData.current = JSON.stringify(initialOrSaved);
+          }
+        } catch (e) {
+          console.error('Exception loading data:', e);
+          const saved = localStorage.getItem(userStorageKey);
+          const initialOrSaved = saved ? JSON.parse(saved) : { ...initialData, stickers: generatePlaceholders() };
+          setData(initialOrSaved);
+          lastSavedData.current = JSON.stringify(initialOrSaved);
         }
       } else {
         // If logged out
@@ -195,27 +227,80 @@ export const useCollection = () => {
       return;
     }
 
-    const saveToFirebase = () => {
-      const docRef = doc(db, 'collections', user!.uid);
-      return setDoc(docRef, { uid: user!.uid, data: JSON.parse(currentDataString) })
-        .then(() => {
+    const saveToSupabase = async () => {
+      try {
+        const parsedData = JSON.parse(currentDataString);
+        
+        if (user) {
+          const userStorageKey = `${STORAGE_KEY}-${user.id}`;
+          localStorage.setItem(userStorageKey, currentDataString);
+        } else {
+          localStorage.setItem(`${STORAGE_KEY}-guest`, currentDataString);
+        }
+
+        const { data: existing, error: selectError } = await supabase.from('collections').select('id').eq('uid', user.id).limit(1);
+        
+        if (selectError) {
+          console.error("Supabase select error (likely missing table), relying on local storage:", selectError);
           lastSavedData.current = currentDataString;
-        })
-        .catch(err => console.error("Error saving to Firebase:", err));
+          return;
+        }
+
+        if (existing && existing.length > 0) {
+          const { error } = await supabase.from('collections').update({ data: parsedData }).eq('uid', user.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from('collections').insert({ uid: user.id, data: parsedData });
+          if (error) throw error;
+        }
+          
+        lastSavedData.current = currentDataString;
+      } catch (err) {
+        console.error("Error saving to Supabase:", err);
+      }
     };
 
     // Save on tab close
-    window.addEventListener('beforeunload', saveToFirebase);
+    window.addEventListener('beforeunload', saveToSupabase);
 
     const handler = setTimeout(() => {
-      saveToFirebase();
+      saveToSupabase();
     }, 1000); // 1 second debounce
 
     return () => {
       clearTimeout(handler);
-      window.removeEventListener('beforeunload', saveToFirebase);
+      window.removeEventListener('beforeunload', saveToSupabase);
     };
   }, [data, user, isLoading]);
+
+  const forceSave = async () => {
+    if (!user || isLoading) return;
+    const currentDataString = JSON.stringify(data);
+    if (lastSavedData.current === currentDataString) return;
+    try {
+      const parsedData = JSON.parse(currentDataString);
+      
+      const userStorageKey = `${STORAGE_KEY}-${user.id}`;
+      localStorage.setItem(userStorageKey, currentDataString);
+
+      const { data: existing, error: selectError } = await supabase.from('collections').select('id').eq('uid', user.id).limit(1);
+      
+      if (selectError) {
+        console.error("Supabase select error (likely missing table), relying on local storage:", selectError);
+        lastSavedData.current = currentDataString;
+        return;
+      }
+
+      if (existing && existing.length > 0) {
+        await supabase.from('collections').update({ data: parsedData }).eq('uid', user.id);
+      } else {
+        await supabase.from('collections').insert({ uid: user.id, data: parsedData });
+      }
+      lastSavedData.current = currentDataString;
+    } catch (err) {
+      console.error("Error force saving to Supabase:", err);
+    }
+  };
 
   const updateSticker = useCallback((stickerId: string, updates: Partial<Sticker>) => {
     // Optimization: Don't keep large base64 in the main collection state if it's already in IDB
@@ -301,14 +386,14 @@ export const useCollection = () => {
     const id = Math.random().toString(36).substr(2, 9);
     setData(prev => ({
       ...prev,
-      transactions: [{ ...transaction, id }, ...prev.transactions]
+      transactions: [{ ...transaction, id }, ...(prev.transactions || [])]
     }));
   }, []);
 
   const deleteTransaction = useCallback((transactionId: string) => {
     setData(prev => ({
       ...prev,
-      transactions: prev.transactions.filter(t => t.id !== transactionId)
+      transactions: (prev.transactions || []).filter(t => t.id !== transactionId)
     }));
   }, []);
 
@@ -330,5 +415,6 @@ export const useCollection = () => {
     deleteTransaction,
     importData,
     resetCollection,
+    forceSave,
   };
 };

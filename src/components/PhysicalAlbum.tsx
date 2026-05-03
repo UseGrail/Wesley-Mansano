@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronLeft, ChevronRight, BookOpen, Copy, CheckCircle2, Star, Search, User, Flag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, Copy, CheckCircle2, Star, User, Flag, Search } from 'lucide-react';
 import { CollectionData, Sticker, StickerStatus, StickerType } from '../types';
 import { INITIAL_TEAMS } from '../constants';
 
@@ -12,7 +12,6 @@ interface PhysicalAlbumProps {
 
 const PhysicalAlbum: React.FC<PhysicalAlbumProps> = ({ data, onUpdateSticker, initialTeamId }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
   
   useEffect(() => {
     if (initialTeamId) {
@@ -90,21 +89,6 @@ const PhysicalAlbum: React.FC<PhysicalAlbumProps> = ({ data, onUpdateSticker, in
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Ir para página..." 
-              className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm w-40 focus:outline-none focus:ring-2 focus:ring-primary-blue/20"
-              value={searchTerm}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSearchTerm(val);
-                const pageNum = parseInt(val);
-                if (pageNum >= 1 && pageNum <= totalPages) setCurrentPage(pageNum);
-              }}
-            />
-          </div>
           <button 
             onClick={copyMissingToClipboard}
             className="p-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"

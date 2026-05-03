@@ -177,7 +177,7 @@ const Finance: React.FC<FinanceProps> = ({ data, addTransaction, deleteTransacti
               Histórico de Movimentações
             </h3>
             <div className="space-y-4">
-              {data.transactions.length > 0 ? data.transactions.map((t) => (
+              {data.transactions && data.transactions.length > 0 ? data.transactions.map((t) => (
                 <div key={t.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <div className="flex items-center gap-4">
                     <div className={`p-2 rounded-lg ${t.valor > 0 ? 'bg-world-green/10 text-world-green' : 'bg-world-red/10 text-world-red'}`}>

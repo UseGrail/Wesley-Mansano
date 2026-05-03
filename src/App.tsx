@@ -35,7 +35,6 @@ import Login from './components/Login';
 
 import ImagesDashboard from './components/ImagesDashboard';
 import Dashboard from './components/Dashboard';
-import Collection from './components/Collection';
 import TeamsList from './components/TeamsList';
 import Specials from './components/Specials';
 import Legends from './components/Legends';
@@ -43,12 +42,11 @@ import Missing from './components/Missing';
 import Duplicates from './components/Duplicates';
 import Finance from './components/Finance';
 import Settings from './components/Settings';
-import ImportExport from './components/ImportExport';
 import PhysicalAlbum from './components/PhysicalAlbum';
 
 export enum Screen {
   DASHBOARD = 'dashboard',
-  COLLECTION = 'collection',
+
   TEAMS = 'teams',
   SPECIALS = 'specials',
   LEGENDS = 'legends',
@@ -58,19 +56,39 @@ export enum Screen {
   ALBUM = 'album',
   IMAGES = 'images',
   QUICK_ENTRY = 'quick-entry',
-  IMPORT_EXPORT = 'import_export',
+
   SETTINGS = 'settings',
 }
 
 export default function App() {
   const { user, logOut } = useAuth();
-  const [activeScreen, setActiveScreen] = useState<Screen>(Screen.DASHBOARD);
+  const getHashScreen = (): Screen => {
+    const hash = window.location.hash.replace('#/', '');
+    if (Object.values(Screen).includes(hash as Screen)) {
+      return hash as Screen;
+    }
+    return Screen.DASHBOARD;
+  };
+
+  const [activeScreen, setActiveScreenState] = useState<Screen>(getHashScreen());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [collectionFilters, setCollectionFilters] = useState<{ teamId?: string; filter?: string }>({});
-  const { data, updateSticker, addSticker, deleteSticker, toggleStickerOwned, addTransaction, deleteTransaction, importData, resetCollection } = useCollection();
+  const { data, updateSticker, addSticker, deleteSticker, toggleStickerOwned, addTransaction, deleteTransaction, importData, resetCollection, forceSave } = useCollection();
 
   React.useEffect(() => {
-    if (user) {
+    const handleHashChange = () => {
+      setActiveScreenState(getHashScreen());
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const setActiveScreen = (screen: Screen) => {
+    window.location.hash = `/${screen}`;
+  };
+
+  React.useEffect(() => {
+    if (user && !window.location.hash) {
       setActiveScreen(Screen.DASHBOARD);
     }
   }, [user]);
@@ -82,14 +100,18 @@ export default function App() {
   }
 
   const navItems = [
-    { id: Screen.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
+    { id: Screen.DASHBOARD, label: 'Visão Geral', icon: LayoutDashboard },
     { id: Screen.ALBUM, label: 'Meu Álbum', icon: BookOpen },
     { id: Screen.QUICK_ENTRY, label: 'Cadastro Rápido', icon: Plus },
+
     { id: Screen.TEAMS, label: 'Seleções', icon: Trophy },
     { id: Screen.SPECIALS, label: 'Especiais', icon: Star },
+    { id: Screen.LEGENDS, label: 'Lendas', icon: Crown },
     { id: Screen.MISSING, label: 'Faltantes', icon: Award },
     { id: Screen.DUPLICATES, label: 'Repetidas', icon: Repeat },
     { id: Screen.FINANCE, label: 'Financeiro', icon: Wallet },
+    { id: Screen.IMAGES, label: 'Galeria', icon: ImageIcon },
+
     { id: Screen.SETTINGS, label: 'Configurações', icon: SettingsIcon },
   ];
 
@@ -107,16 +129,7 @@ export default function App() {
             }} 
           />
         );
-      case Screen.COLLECTION:
-        return (
-          <Collection 
-            data={data} 
-            toggleOwned={toggleStickerOwned} 
-            updateSticker={updateSticker} 
-            initialTeamId={collectionFilters.teamId}
-            initialFilter={collectionFilters.filter as any}
-          />
-        );
+
       case Screen.TEAMS:
         return (
           <TeamsList 
@@ -186,8 +199,7 @@ export default function App() {
             </div>
           </div>
         );
-      case Screen.IMPORT_EXPORT:
-        return <ImportExport data={data} importData={importData} onReset={resetCollection} />;
+
       case Screen.SETTINGS:
         return <Settings data={data} setData={(newData) => importData(newData)} />;
       default:
@@ -198,7 +210,7 @@ export default function App() {
             onNavigate={setActiveScreen} 
             onNavigateToTeam={(teamId) => {
               setCollectionFilters({ teamId });
-              setActiveScreen(Screen.COLLECTION);
+              setActiveScreen(Screen.ALBUM);
             }} 
           />
         );
@@ -208,15 +220,20 @@ export default function App() {
   return (
     <div className={`min-h-screen flex flex-col md:flex-row bg-world-gray transition-colors ${data.settings.darkMode ? 'dark' : ''}`}>
       {/* Mobile Header */}
-      <header className="md:hidden flex items-center justify-between p-3 bg-primary-dark text-white border-b border-white/10 sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center shadow-lg">
-            <Trophy className="text-primary-dark w-5 h-5" />
+      <header className="md:hidden flex items-center justify-between py-3 px-4 bg-primary-dark text-white border-b border-white/10 sticky top-0 z-50 shadow-md">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg gold-gradient flex items-center justify-center shadow-lg">
+            <Trophy className="text-primary-dark w-5 h-5 flex-shrink-0" />
           </div>
-          <h1 className="font-display font-bold text-base leading-tight">Copa do Mundo <span className="text-world-gold">2026</span></h1>
+          <div className="flex flex-col">
+            <h1 className="font-display font-bold text-[10px] text-world-gold uppercase tracking-widest leading-none mb-1">Copa do Mundo 26</h1>
+            <h2 className="font-display font-bold text-lg leading-none truncate max-w-[200px]">
+              {navItems.find(item => item.id === activeScreen)?.label || 'Álbum'}
+            </h2>
+          </div>
         </div>
         <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-white/10 rounded-lg">
-          <Menu size={20} />
+          <Menu size={24} />
         </button>
       </header>
 
@@ -247,9 +264,6 @@ export default function App() {
               onClick={() => {
                 setActiveScreen(item.id);
                 setIsSidebarOpen(false);
-                if (item.id === Screen.COLLECTION) {
-                  setCollectionFilters({});
-                }
               }}
               className={`
                 w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
@@ -264,7 +278,10 @@ export default function App() {
             </button>
           ))}
           <button
-            onClick={() => logOut()}
+            onClick={async () => {
+              await forceSave();
+              logOut();
+            }}
             className="w-full flex items-center gap-3 px-4 py-3 mt-4 rounded-xl text-white/60 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200 group"
           >
             <LogOut size={20} />
@@ -309,15 +326,21 @@ export default function App() {
       </main>
 
       {/* Mobile Nav */}
-      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] h-14 bg-primary-dark/95 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-around z-50 px-2 shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
-        {navItems.slice(0, 5).map((item) => (
+      <nav className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] h-16 bg-primary-dark/95 backdrop-blur-xl border border-white/10 rounded-2xl flex items-center justify-around z-50 px-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+        {[
+          navItems.find(i => i.id === Screen.DASHBOARD),
+          navItems.find(i => i.id === Screen.ALBUM),
+          navItems.find(i => i.id === Screen.QUICK_ENTRY),
+          navItems.find(i => i.id === Screen.MISSING),
+          navItems.find(i => i.id === Screen.DUPLICATES)
+        ].map((item, idx) => item && (
           <button
             key={item.id}
             onClick={() => setActiveScreen(item.id)}
-            className={`flex flex-col items-center justify-center gap-0.5 transition-all ${activeScreen === item.id ? 'text-world-gold scale-110' : 'text-white/40'}`}
+            className={`flex flex-col items-center justify-center gap-1 transition-all ${activeScreen === item.id ? 'text-world-gold scale-110' : 'text-white/50 hover:text-white/80'}`}
           >
-            <item.icon size={18} fill={activeScreen === item.id ? 'currentColor' : 'none'} />
-            <span className="text-[9px] font-black uppercase tracking-tighter">{item.label}</span>
+            <item.icon size={20} fill={activeScreen === item.id ? 'currentColor' : 'none'} />
+            <span className="text-[10px] font-black uppercase tracking-tighter truncate max-w-[60px]">{item.label === 'Visão Geral' ? 'Início' : item.label === 'Meu Álbum' ? 'Álbum' : item.label === 'Cadastro Rápido' ? 'Adicionar' : item.label}</span>
           </button>
         ))}
       </nav>

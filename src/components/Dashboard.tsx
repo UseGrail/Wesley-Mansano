@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Plus,
   TrendingUp,
-  Award
+  Award,
+  Package
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
@@ -32,12 +33,16 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, data, onNavigate, onNaviga
   ], [stats.totalUnicasTenho, stats.totalFaltantes]);
 
   const teamProgressData = useMemo(() => {
-    return data.teams.slice(0, 5).map(team => {
-      const teamStickers = data.stickers.filter(s => s.timeId === team.id);
-      const owned = teamStickers.filter(s => s.quantidade >= 1).length;
-      const progress = teamStickers.length > 0 ? (owned / teamStickers.length) * 100 : 0;
-      return { name: team.nome, progress };
-    });
+    return data.teams
+      .filter(t => t.id !== 'spec' && t.id !== 'leg')
+      .map(team => {
+        const teamStickers = data.stickers.filter(s => s.timeId === team.id);
+        const owned = teamStickers.filter(s => s.quantidade >= 1).length;
+        const progress = teamStickers.length > 0 ? (owned / teamStickers.length) * 100 : 0;
+        return { name: team.nome, progress };
+      })
+      .sort((a, b) => b.progress - a.progress)
+      .slice(0, 5);
   }, [data.teams, data.stickers]);
 
   const nextGoal = useMemo(() => {
@@ -190,10 +195,10 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, data, onNavigate, onNaviga
           onClick={() => onNavigate('legends')}
         />
         <MiniCard 
-          title="Valor Médio/Fig" 
-          value={formatCurrency(stats.totalFigurinhasCompradas > 0 ? stats.investimentoTotal / stats.totalFigurinhasCompradas : 0)} 
-          subtitle="Por unidade"
-          icon={Wallet} 
+          title="Pacotinhos" 
+          value={stats.envelopesComprados} 
+          subtitle="Comprados"
+          icon={Package} 
           color="bg-world-green" 
           onClick={() => onNavigate('finance')}
         />
