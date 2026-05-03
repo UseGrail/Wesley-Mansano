@@ -151,51 +151,44 @@ const generatePlaceholders = (): Sticker[] => {
 
 export const useCollection = () => {
   const { user } = useAuth();
-  const [data, setData] = useState<CollectionData>(() => {
-    // ... we need to be careful with initialization here
-    // If not logged in, fetch from localstorage immediately
-    if (!user) {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) return JSON.parse(saved);
-    }
-    return { ...initialData, stickers: generatePlaceholders() };
-  });
+  const [data, setData] = useState<CollectionData>({ ...initialData, stickers: generatePlaceholders() });
+  const [isLoading, setIsLoading] = useState(true);
+  const lastSavedData = useRef<string | null>(null);
 
   // Sync effect
   useEffect(() => {
     async function loadData() {
+      setIsLoading(true);
       if (user) {
-        // Reset to initial state while loading to avoid data leakage
-        setData({ ...initialData, stickers: generatePlaceholders() });
-        
         const docRef = doc(db, 'collections', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setData(docSnap.data().data as CollectionData);
+          const loadedData = docSnap.data().data as CollectionData;
+          setData(loadedData);
+          lastSavedData.current = JSON.stringify(loadedData);
         } else {
-             // For new user, persist the current state (if any)
-            await setDoc(docRef, { uid: user.uid, data: JSON.parse(JSON.stringify(data)) });
+            // For new user
+            const newData = { ...initialData, stickers: generatePlaceholders() };
+            setData(newData);
+            lastSavedData.current = JSON.stringify(newData);
+            await setDoc(docRef, { uid: user.uid, data: JSON.parse(JSON.stringify(newData)) });
         }
       } else {
-        // If logged out, reset to local storage or initial
+        // If logged out
         const storageKey = `${STORAGE_KEY}-guest`;
         const saved = localStorage.getItem(storageKey);
-        setData(saved ? JSON.parse(saved) : { ...initialData, stickers: generatePlaceholders() });
+        const initialOrSaved = saved ? JSON.parse(saved) : { ...initialData, stickers: generatePlaceholders() };
+        setData(initialOrSaved);
+        lastSavedData.current = JSON.stringify(initialOrSaved);
       }
+      setIsLoading(false);
     }
     loadData();
   }, [user]);
 
   // Save effect
-  const lastSavedData = useRef<string | null>(null);
-
   useEffect(() => {
-    const getStorageKey = () => user ? `${STORAGE_KEY}-${user.uid}` : `${STORAGE_KEY}-guest`;
-
-    if (!user) {
-      localStorage.setItem(getStorageKey(), JSON.stringify(data));
-      return;
-    }
+    if (isLoading || !user) return; 
 
     const currentDataString = JSON.stringify(data);
     if (lastSavedData.current === currentDataString) {
@@ -209,7 +202,7 @@ export const useCollection = () => {
           lastSavedData.current = currentDataString;
         })
         .catch(err => console.error("Error saving to Firebase:", err));
-    }, 5000); // 5 seconds debounce
+    }, 60000); 
 
     return () => clearTimeout(handler);
   }, [data, user]);

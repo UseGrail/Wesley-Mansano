@@ -40,10 +40,16 @@ const Missing: React.FC<MissingProps> = ({ data, toggleOwned }) => {
     return filteredMissing.slice(0, currentPage * ITEMS_PER_PAGE);
   }, [filteredMissing, currentPage]);
 
-  const copyToClipboard = () => {
+  const handleShareToWhatsApp = () => {
     const text = `Faltantes Meu Álbum 2026:\n${filteredMissing.map(s => `${s.codigo} - ${s.nome} (${s.timeNome})`).join('\n')}`;
+    
+    // Copy to clipboard
     navigator.clipboard.writeText(text);
-    alert('Lista de faltantes copiada para a área de transferência!');
+
+    // Open WhatsApp
+    const encodedText = encodeURIComponent(text);
+    const url = `https://wa.me/?text=${encodedText}`;
+    window.open(url, '_blank');
   };
 
   return (
@@ -54,7 +60,7 @@ const Missing: React.FC<MissingProps> = ({ data, toggleOwned }) => {
           <p className="text-sm text-gray-500 font-medium">O que você ainda precisa para completar o álbum.</p>
         </div>
         <button 
-          onClick={copyToClipboard}
+          onClick={handleShareToWhatsApp}
           className="px-4 md:px-6 py-2.5 md:py-3 bg-world-green text-white rounded-xl font-bold text-sm md:text-base flex items-center justify-center gap-2 hover:bg-green-600 transition-all shadow-lg active:scale-95"
         >
           <MessageCircle size={18} />

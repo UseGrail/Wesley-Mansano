@@ -19,10 +19,16 @@ const Duplicates: React.FC<DuplicatesProps> = ({ data, toggleOwned }) => {
     return duplicates.slice(0, currentPage * ITEMS_PER_PAGE);
   }, [duplicates, currentPage]);
 
-  const copyToClipboard = () => {
-    const text = `Minhas Repetidas Meu Álbum 2026:\n${duplicates.map(s => `${s.codigo} (x${s.quantidade - 1})`).join(', ')}`;
+  const handleShareToWhatsApp = () => {
+    const text = `Minhas Repetidas Meu Álbum 2026:\n${duplicates.map(s => `${s.codigo} (x${s.quantidade - 1})`).join('\n')}`;
+    
+    // Copy to clipboard
     navigator.clipboard.writeText(text);
-    alert('Lista de repetidas copiada!');
+
+    // Open WhatsApp
+    const encodedText = encodeURIComponent(text);
+    const url = `https://wa.me/?text=${encodedText}`;
+    window.open(url, '_blank');
   };
 
   return (
@@ -33,11 +39,11 @@ const Duplicates: React.FC<DuplicatesProps> = ({ data, toggleOwned }) => {
           <p className="text-sm text-gray-500 font-medium">Você tem {totalExtra} figurinhas extras para trocar.</p>
         </div>
         <button 
-          onClick={copyToClipboard}
+          onClick={handleShareToWhatsApp}
           className="px-4 md:px-6 py-2.5 md:py-3 bg-primary-dark text-white rounded-xl font-bold text-sm md:text-base flex items-center justify-center gap-2 hover:bg-primary-blue transition-all active:scale-95"
         >
           <Copy size={18} />
-          Copiar Códigos
+          Compartilhar/Copiar Códigos
         </button>
       </div>
 
