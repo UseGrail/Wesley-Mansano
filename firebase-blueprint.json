@@ -1,0 +1,20 @@
+{
+  "entities": {
+    "collection": {
+      "title": "Collection",
+      "description": "User album data",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "data": { "type": "object" }
+      },
+      "required": ["uid", "data"]
+    }
+  },
+  "firestore": {
+    "/collections/{uid}": {
+      "schema": "collection",
+      "description": "User album data scoped by user ID"
+    }
+  }
+}
