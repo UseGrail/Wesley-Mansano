@@ -209,7 +209,7 @@ export const useCollection = () => {
 
     const handler = setTimeout(() => {
       saveToFirebase();
-    }, 300000); // 5 minutes debounce
+    }, 1000); // 1 second debounce
 
     return () => {
       clearTimeout(handler);
