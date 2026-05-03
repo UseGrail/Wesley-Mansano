@@ -69,6 +69,12 @@ export default function App() {
   const [collectionFilters, setCollectionFilters] = useState<{ teamId?: string; filter?: string }>({});
   const { data, updateSticker, addSticker, deleteSticker, toggleStickerOwned, addTransaction, deleteTransaction, importData, resetCollection } = useCollection();
 
+  React.useEffect(() => {
+    if (user) {
+      setActiveScreen(Screen.DASHBOARD);
+    }
+  }, [user]);
+
   const stats = useMemo(() => calculateCollectionStats(data.stickers, data.transactions, data.totalEsperadoCromos, data.totalEsperadoEspeciais), [data]);
 
   if (!user) {
